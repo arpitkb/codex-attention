@@ -41,7 +41,8 @@ export async function install(args = []) {
   }
 
   console.log(`Installed Codex Attention in ${codexHome}`)
-  console.log('Restart Codex, then run: codex-attention doctor --send-test')
+  console.log('Close and reopen any running Codex CLI sessions so hooks reload.')
+  console.log('Verify from your terminal with: npx codex-attention@latest doctor --send-test')
 }
 
 async function patchHooksJson(hooksPath, existingHooks, hookSpec) {

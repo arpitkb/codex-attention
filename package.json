@@ -1,6 +1,6 @@
 {
   "name": "codex-attention",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Native macOS attention notifications for Codex CLI using Codex hooks.",
   "type": "module",
   "bin": {

@@ -21,10 +21,14 @@ test('install writes config, hooks, and a runnable copied hook', async (t) => {
   process.env.CODEX_HOME = codexHome
   process.env.CODEX_ATTENTION_TERMINAL_NOTIFIER = fakeNotifier
   process.env.CODEX_ATTENTION_FAKE_NOTIFIER_LOG = notifierLog
+  const logs = []
+  const originalLog = console.log
+  console.log = (...args) => logs.push(args.join(' '))
   try {
     await install(['--no-install-deps', '--activate-bundle-id', 'com.apple.Terminal'])
     await install(['--no-install-deps', '--activate-bundle-id', 'com.googlecode.iterm2'])
   } finally {
+    console.log = originalLog
     restoreEnv(previousEnv)
   }
 
@@ -56,6 +60,8 @@ test('install writes config, hooks, and a runnable copied hook', async (t) => {
   assert.equal(result.status, 0)
   assert.equal(result.stdout, '')
   assert.match(await fs.readFile(notifierLog, 'utf8'), /Codex needs approval/)
+  assert.match(logs.join('\n'), /npx codex-attention@latest doctor --send-test/)
+  assert.doesNotMatch(logs.join('\n'), /then run: codex-attention doctor --send-test/)
 })
 
 test('uninstall preserves unrelated hook commands in mixed entries', async (t) => {

@@ -17,46 +17,23 @@ The installer can install `terminal-notifier` with Homebrew when you approve it.
 
 ## Install
 
+Run the installer:
+
 ```bash
 npx codex-attention@latest install
 ```
 
-If `terminal-notifier` is missing, the installer prompts before running:
-
-```bash
-brew install terminal-notifier
-```
-
-For non-interactive installs:
-
-```bash
-npx codex-attention@latest install --yes
-```
-
-To skip dependency installation and print the manual fix instead:
-
-```bash
-npx codex-attention@latest install --no-install-deps
-```
-
-To set the terminal app activated on notification click:
-
-```bash
-npx codex-attention@latest install --activate-bundle-id com.apple.Terminal
-```
-
-Common bundle IDs:
-
-- iTerm2: `com.googlecode.iterm2`
-- Terminal.app: `com.apple.Terminal`
-
-Restart Codex after install.
-
-## Check
+If it asks to install `terminal-notifier`, answer `y`. Then close and reopen any running Codex CLI sessions so hooks reload.
 
 ```bash
 npx codex-attention@latest doctor --send-test
 ```
+
+Useful install options:
+
+- `--yes`: install `terminal-notifier` with Homebrew without prompting.
+- `--no-install-deps`: skip dependency installation and print the manual fix.
+- `--activate-bundle-id <id>`: choose the app opened when you click a notification. Common values: `com.apple.Terminal`, `com.googlecode.iterm2`.
 
 ## Uninstall
 

@@ -8,9 +8,9 @@ const [command, ...args] = process.argv.slice(2)
 
 function usage() {
   console.log(`Usage:
-  codex-attention install [--yes|--install-deps|--no-install-deps] [--activate-bundle-id <id>]
-  codex-attention doctor [--send-test]
-  codex-attention uninstall
+  npx codex-attention@latest install [--yes|--install-deps|--no-install-deps] [--activate-bundle-id <id>]
+  npx codex-attention@latest doctor [--send-test]
+  npx codex-attention@latest uninstall
 
 Commands:
   install    Install Codex hooks, default config, and approved notification dependency

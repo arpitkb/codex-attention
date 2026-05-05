@@ -78,7 +78,7 @@ function terminalNotifierCheck() {
   const notifier = findTerminalNotifier()
   return notifier
     ? { name: 'terminal-notifier', ok: true, message: notifier }
-    : { name: 'terminal-notifier', ok: false, message: 'Run: brew install terminal-notifier or codex-attention install --yes' }
+    : { name: 'terminal-notifier', ok: false, message: 'Run: brew install terminal-notifier or npx codex-attention@latest install --yes' }
 }
 
 async function sendTestNotification() {
