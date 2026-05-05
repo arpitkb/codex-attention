@@ -27,7 +27,8 @@
     "openai",
     "notifications",
     "hooks",
-    "macos"
+    "macos",
+    "built-with-codex"
   ],
   "license": "MIT"
 }

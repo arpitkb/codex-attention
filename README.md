@@ -2,6 +2,8 @@
 
 Native macOS notifications for Codex CLI attention events.
 
+> Built with OpenAI Codex.
+
 `codex-attention` installs Codex hooks that notify you when Codex needs permission approval and, optionally, when a turn finishes. Clicking a notification can activate your configured terminal app.
 
 ## Requirements
