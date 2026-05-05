@@ -1,0 +1,33 @@
+{
+  "name": "codex-attention",
+  "version": "0.1.0",
+  "description": "Native macOS attention notifications for Codex CLI using Codex hooks.",
+  "type": "module",
+  "bin": {
+    "codex-attention": "./bin/codex-attention.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "lint": "node --check bin/codex-attention.js && find src test -name '*.js' -print0 | xargs -0 -n1 node --check"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "os": [
+    "darwin"
+  ],
+  "keywords": [
+    "codex",
+    "openai",
+    "notifications",
+    "hooks",
+    "macos"
+  ],
+  "license": "MIT"
+}
