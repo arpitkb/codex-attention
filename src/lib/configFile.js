@@ -11,25 +11,39 @@ export const DEFAULT_CONFIG = {
   notifier: {
     provider: 'terminal-notifier',
     sound: 'Ping',
+    permissionSound: 'Basso',
+    stopSound: 'Ping',
     groupStrategy: 'session',
     activateOnClick: true,
-    activateBundleId: 'com.googlecode.iterm2'
+    activateBundleId: 'com.googlecode.iterm2',
+    webhookUrl: '',
+    webhookFormat: 'slack',
+    webhookEnabled: false,
+    webhookWhen: 'always',
+    webhookIdleSeconds: 120
   },
   messages: {
-    permissionTitle: 'Codex needs approval',
-    permissionBody: '{{toolName}} is waiting in {{cwdShort}}',
-    stopTitle: 'Codex',
+    permissionTitle: 'Codex · {{projectName}}',
+    permissionSubtitle: 'Approval needed',
+    permissionBody: '{{toolName}}: {{toolInputShort}}',
+    stopTitle: 'Codex · {{projectName}}',
+    stopSubtitle: 'Turn finished',
     stopBody: 'Turn finished in {{cwdShort}}',
-    questionBody: 'Codex may be waiting for your reply in {{cwdShort}}'
+    questionSubtitle: 'Waiting for reply',
+    questionBody: '{{lastMessageShort}}'
   },
   behavior: {
     notifyOnQuestionOnlyForStop: false,
-    questionDetection: 'basic',
-    redactToolInput: true
+    questionDetection: 'enhanced',
+    showToolInput: true,
+    cooldownSeconds: 3,
+    rules: []
   },
   logging: {
     enabled: true,
-    path: '~/.codex/hooks/codex-attention.log'
+    path: '~/.codex/hooks/codex-attention.log',
+    format: 'json',
+    maxSizeBytes: 1048576
   }
 }
 
@@ -56,7 +70,7 @@ export async function readAttentionConfig(codexHome) {
   }
 }
 
-export async function writeDefaultConfig(codexHome, overrides = {}) {
+export async function writeDefaultConfig(codexHome, overrides = {}, options = {}) {
   const configPath = path.join(codexHome, 'codex-attention.json')
   await fs.mkdir(codexHome, { recursive: true })
 
@@ -69,9 +83,26 @@ export async function writeDefaultConfig(codexHome, overrides = {}) {
     }
   }
 
-  const config = existing ? mergeConfig(existing) : mergeConfig(overrides)
+  const config = existing
+    ? mergeConfig(options.applyOverridesToExisting ? mergePlainObjects(existing, overrides) : existing)
+    : mergeConfig(overrides)
   await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8')
   return configPath
+}
+
+function mergePlainObjects(base, override) {
+  const next = { ...base }
+  for (const [key, value] of Object.entries(override)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      next[key] = mergePlainObjects(
+        next[key] && typeof next[key] === 'object' && !Array.isArray(next[key]) ? next[key] : {},
+        value
+      )
+    } else {
+      next[key] = value
+    }
+  }
+  return next
 }
 
 export function resolvedLogPath(config) {

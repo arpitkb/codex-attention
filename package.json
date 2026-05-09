@@ -1,7 +1,7 @@
 {
   "name": "codex-attention",
-  "version": "0.2.0",
-  "description": "Native macOS attention notifications for Codex CLI using Codex hooks.",
+  "version": "2.0.0",
+  "description": "Native macOS notifications for Codex CLI — rich tool details, per-event sounds, webhooks, and more.",
   "type": "module",
   "bin": {
     "codex-attention": "./bin/codex-attention.js"
@@ -10,11 +10,12 @@
     "bin",
     "src",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
     "test": "node --test",
-    "lint": "node --check bin/codex-attention.js && find src test -name '*.js' -print0 | xargs -0 -n1 node --check"
+    "lint": "node --check bin/codex-attention.js && find src test -name '*.js' -o -name '*.cjs' | xargs -n1 node --check"
   },
   "engines": {
     "node": ">=20"
@@ -28,6 +29,8 @@
     "notifications",
     "hooks",
     "macos",
+    "slack",
+    "webhook",
     "built-with-codex"
   ],
   "license": "MIT"

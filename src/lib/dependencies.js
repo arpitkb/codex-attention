@@ -15,7 +15,7 @@ export const BREW_CANDIDATES = [
 
 export function assertMacOS(platform = process.platform) {
   if (platform !== 'darwin') {
-    throw new Error('codex-attention V1 supports macOS only.')
+    throw new Error('codex-attention supports macOS only.')
   }
 }
 

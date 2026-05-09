@@ -1,10 +1,22 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { resolveCodexHome } from '../lib/codexHome.js'
+import { fileURLToPath } from 'node:url'
+import { resolveCodexHome, expandHome } from '../lib/codexHome.js'
+import { readAttentionConfig, DEFAULT_CONFIG, resolvedLogPath } from '../lib/configFile.js'
 import { findTerminalNotifier } from '../lib/dependencies.js'
 import { sendTerminalNotification } from '../lib/notifiers/macTerminalNotifier.js'
+import { sendWebhookNotification } from '../lib/notifiers/webhookNotifier.js'
+import { readRecentLogs } from '../lib/log.js'
+import { bold, dim, green, red, yellow } from '../lib/cliColors.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export async function doctor(args = []) {
+  // Show version
+  const version = await readVersion()
+  console.log(bold(`codex-attention v${version}`))
+  console.log()
+
   const codexHome = resolveCodexHome()
   const hookPath = path.join(codexHome, 'hooks/codex-attention-hook.cjs')
   const checks = [
@@ -13,19 +25,44 @@ export async function doctor(args = []) {
     await exists('hook script', hookPath),
     await hooksJsonCheck(codexHome, hookPath),
     await configTomlCheck(codexHome),
-    terminalNotifierCheck()
+    terminalNotifierCheck(),
+    await configValidation(codexHome),
+    await logFileCheck(codexHome)
   ]
 
   if (args.includes('--send-test')) {
     checks.push(await sendTestNotification())
+    checks.push(await sendTestWebhook(codexHome))
   }
 
   for (const check of checks) {
-    console.log(`${check.ok ? 'PASS' : 'FAIL'} ${check.name}${check.message ? ` - ${check.message}` : ''}`)
+    if (check.warn) {
+      console.log(`${yellow('⚠')} ${check.name}${check.message ? ` — ${yellow(check.message)}` : ''}`)
+    } else if (check.ok) {
+      console.log(`${green('✓')} ${check.name}${check.message ? dim(` — ${check.message}`) : ''}`)
+    } else {
+      console.log(`${red('✗')} ${check.name}${check.message ? ` — ${red(check.message)}` : ''}`)
+    }
   }
 
-  if (checks.some((check) => !check.ok)) {
+  console.log()
+  const pass = checks.filter((c) => c.ok && !c.warn).length
+  const fail = checks.filter((c) => !c.ok && !c.warn).length
+  const warn = checks.filter((c) => c.warn).length
+  console.log(`${green(pass + ' pass')}${warn ? `, ${yellow(warn + ' warn')}` : ''}${fail ? `, ${red(fail + ' fail')}` : ''}`)
+
+  if (fail > 0) {
     process.exitCode = 1
+  }
+}
+
+async function readVersion() {
+  try {
+    const pkgPath = path.resolve(__dirname, '../../package.json')
+    const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf8'))
+    return pkg.version || 'unknown'
+  } catch {
+    return 'unknown'
   }
 }
 
@@ -67,7 +104,7 @@ async function configTomlCheck(codexHome) {
     return {
       name: 'config.toml codex_hooks',
       ok: /\[features\][\s\S]*codex_hooks\s*=\s*true/.test(text),
-      message: 'Expected [features] codex_hooks = true'
+      message: /\[features\][\s\S]*codex_hooks\s*=\s*true/.test(text) ? '' : 'Expected [features] codex_hooks = true'
     }
   } catch (error) {
     return { name: 'config.toml codex_hooks', ok: false, message: error.message }
@@ -81,10 +118,101 @@ function terminalNotifierCheck() {
     : { name: 'terminal-notifier', ok: false, message: 'Run: brew install terminal-notifier or npx codex-attention@latest install --yes' }
 }
 
+async function configValidation(codexHome) {
+  try {
+    const raw = await fs.readFile(path.join(codexHome, 'codex-attention.json'), 'utf8')
+    const config = JSON.parse(raw)
+    const unknownKeys = findUnknownKeys(config, DEFAULT_CONFIG)
+    const invalidTypes = findInvalidTypes(config, DEFAULT_CONFIG)
+    if (invalidTypes.length > 0) {
+      return {
+        name: 'config schema',
+        ok: false,
+        message: `Invalid value types: ${invalidTypes.join(', ')}`
+      }
+    }
+    if (unknownKeys.length > 0) {
+      return {
+        name: 'config schema',
+        ok: true,
+        warn: true,
+        message: `Unknown keys: ${unknownKeys.join(', ')}`
+      }
+    }
+    return { name: 'config schema', ok: true, message: 'valid' }
+  } catch (error) {
+    if (error.code === 'ENOENT') return { name: 'config schema', ok: true, message: 'using defaults' }
+    return { name: 'config schema', ok: false, message: error.message }
+  }
+}
+
+function findInvalidTypes(config, defaults, prefix = '') {
+  const invalid = []
+  for (const [key, value] of Object.entries(config)) {
+    if (!(key in defaults)) continue
+    const fullKey = prefix ? `${prefix}.${key}` : key
+    const expected = defaults[key]
+
+    if (Array.isArray(expected)) {
+      if (!Array.isArray(value)) invalid.push(fullKey)
+      continue
+    }
+
+    if (expected && typeof expected === 'object') {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        invalid.push(fullKey)
+      } else {
+        invalid.push(...findInvalidTypes(value, expected, fullKey))
+      }
+      continue
+    }
+
+    if (typeof value !== typeof expected) {
+      invalid.push(fullKey)
+    }
+  }
+  return invalid
+}
+
+function findUnknownKeys(config, defaults, prefix = '') {
+  const unknown = []
+  for (const key of Object.keys(config)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key
+    if (!(key in defaults)) {
+      unknown.push(fullKey)
+    } else if (defaults[key] && typeof defaults[key] === 'object' && !Array.isArray(defaults[key]) &&
+               config[key] && typeof config[key] === 'object' && !Array.isArray(config[key])) {
+      unknown.push(...findUnknownKeys(config[key], defaults[key], fullKey))
+    }
+  }
+  return unknown
+}
+
+async function logFileCheck(codexHome) {
+  try {
+    const config = await readAttentionConfig(codexHome)
+    const logPath = resolvedLogPath(config)
+    const stat = await fs.stat(logPath)
+    const sizeKb = (stat.size / 1024).toFixed(1)
+    const entries = await readRecentLogs(config.logging.path, 1)
+    const lastEntry = entries.length > 0 ? entries[0].ts || '' : 'empty'
+    return {
+      name: 'log file',
+      ok: true,
+      message: `${sizeKb} KB, last: ${lastEntry}`
+    }
+  } catch (error) {
+    if (error.code === 'ENOENT') return { name: 'log file', ok: true, message: 'no entries yet' }
+    return { name: 'log file', ok: false, message: error.message }
+  }
+}
+
 async function sendTestNotification() {
   const result = await sendTerminalNotification({
     title: 'Codex Attention',
-    message: 'Test notification',
+    subtitle: 'Test notification',
+    message: 'If you see this, notifications are working!',
+    sound: 'Ping',
     config: {
       notifier: {
         sound: 'Ping',
@@ -101,5 +229,30 @@ async function sendTestNotification() {
     name: 'test notification',
     ok: result.ok,
     message: result.ok ? '' : result.error?.message || 'terminal-notifier failed'
+  }
+}
+
+async function sendTestWebhook(codexHome) {
+  try {
+    const config = await readAttentionConfig(codexHome)
+    if (!config.notifier.webhookEnabled || !config.notifier.webhookUrl) {
+      return { name: 'test webhook', ok: true, warn: false, message: 'not configured (skipped)' }
+    }
+    const result = await sendWebhookNotification({
+      title: 'Codex Attention',
+      subtitle: 'Test webhook',
+      message: 'If you see this, webhooks are working!'
+    }, config)
+
+    if (result.skipped) {
+      return { name: 'test webhook', ok: true, message: 'skipped (not configured)' }
+    }
+    return {
+      name: 'test webhook',
+      ok: result.ok,
+      message: result.ok ? `HTTP ${result.status}` : result.error?.message || 'webhook failed'
+    }
+  } catch (error) {
+    return { name: 'test webhook', ok: false, message: error.message }
   }
 }

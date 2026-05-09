@@ -59,7 +59,7 @@ test('install writes config, hooks, and a runnable copied hook', async (t) => {
 
   assert.equal(result.status, 0)
   assert.equal(result.stdout, '')
-  assert.match(await fs.readFile(notifierLog, 'utf8'), /Codex needs approval/)
+  assert.match(await fs.readFile(notifierLog, 'utf8'), /Codex/)
   assert.match(logs.join('\n'), /npx codex-attention@latest doctor --send-test/)
   assert.doesNotMatch(logs.join('\n'), /then run: codex-attention doctor --send-test/)
 })
